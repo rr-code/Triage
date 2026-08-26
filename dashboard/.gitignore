@@ -1,0 +1,12 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.verify_shots/
+out/
+dashboard.html
+events.json
+events.jso
+.DS_Store
