@@ -1,0 +1,187 @@
+{
+  "generated_at": "2026-09-04T12:22:19.817799+00:00",
+  "dataset": {
+    "event_count": 1500,
+    "seed": 7
+  },
+  "policy": {
+    "max_customer_contacts_per_case": 3,
+    "min_hours_between_contacts": 24,
+    "max_total_attempts_per_case": 6,
+    "max_discount_percent": 15
+  },
+  "headline": {
+    "recovered_amount": 654480812,
+    "config_label": "rules + full guardrails",
+    "baseline_recovered_amount": 363105141,
+    "pct_vs_baseline": 0.8024553720102795,
+    "wasted_retries": 0,
+    "customer_contacts": 402,
+    "recovery_per_contact": 1628061.7213930348,
+    "exceptions_logged": 1234
+  },
+  "comparison": {
+    "configs": [
+      {
+        "key": "baseline",
+        "label": "naive + permissive gate",
+        "strategy_name": "naive_retry_everything",
+        "gate_name": "permissive",
+        "recovered_amount": 363105141,
+        "recovered_count": 155,
+        "customer_contacts": 402,
+        "recovery_per_contact": 903246.6194029851,
+        "total_cases": 1500,
+        "dead_instrument_retries": 180,
+        "exceptions": {
+          "blocked_by_guardrail": 0,
+          "declined_by_strategy": 0,
+          "attempted_and_failed": 1008,
+          "never_detected": 337
+        }
+      },
+      {
+        "key": "guardrailed_baseline",
+        "label": "naive + full guardrails",
+        "strategy_name": "naive_retry_everything",
+        "gate_name": "guardrails",
+        "recovered_amount": 283992530,
+        "recovered_count": 119,
+        "customer_contacts": 402,
+        "recovery_per_contact": 706449.0796019901,
+        "total_cases": 1500,
+        "dead_instrument_retries": 180,
+        "exceptions": {
+          "blocked_by_guardrail": 568,
+          "declined_by_strategy": 0,
+          "attempted_and_failed": 476,
+          "never_detected": 337
+        }
+      },
+      {
+        "key": "triage",
+        "label": "rules + full guardrails",
+        "strategy_name": "triage_rules",
+        "gate_name": "guardrails",
+        "recovered_amount": 654480812,
+        "recovered_count": 266,
+        "customer_contacts": 402,
+        "recovery_per_contact": 1628061.7213930348,
+        "total_cases": 1500,
+        "dead_instrument_retries": 0,
+        "exceptions": {
+          "blocked_by_guardrail": 0,
+          "declined_by_strategy": 347,
+          "attempted_and_failed": 550,
+          "never_detected": 337
+        }
+      }
+    ],
+    "guardrails_lift": -79112611,
+    "strategy_lift": 370488282,
+    "total_lift": 291375671,
+    "contact_delta": 0
+  },
+  "funnel": {
+    "scanned": 1500,
+    "detected": 1163,
+    "actioned": 1163,
+    "recovered": 266,
+    "exceptions": {
+      "blocked_by_guardrail": 0,
+      "declined_by_strategy": 347,
+      "attempted_and_failed": 550,
+      "never_detected": 337
+    }
+  },
+  "decline_codes": [
+    {
+      "code": "DO_NOT_HONOUR",
+      "decline_class": "ambiguous",
+      "note": "Most common, least informative code. One backed-off retry, then switch lever \u2014 never grind on it.",
+      "cases": 228,
+      "attempted": 161,
+      "succeeded": 102,
+      "recovered": 102,
+      "recovered_amount": 246703859,
+      "wasted_retries": 0
+    },
+    {
+      "code": "INSUFFICIENT_FUNDS",
+      "decline_class": "soft",
+      "note": "Funds may replenish; a later retry on the same instrument is often enough.",
+      "cases": 154,
+      "attempted": 0,
+      "succeeded": 0,
+      "recovered": 0,
+      "recovered_amount": 0,
+      "wasted_retries": 0
+    },
+    {
+      "code": "ISSUER_UNAVAILABLE",
+      "decline_class": "soft",
+      "note": "Transient bank-side outage; a short backoff usually resolves it.",
+      "cases": 75,
+      "attempted": 73,
+      "succeeded": 43,
+      "recovered": 43,
+      "recovered_amount": 109576303,
+      "wasted_retries": 0
+    },
+    {
+      "code": "LIMIT_EXCEEDED",
+      "decline_class": "soft",
+      "note": "Per-transaction or velocity limit; wait for the limit window to reset.",
+      "cases": 124,
+      "attempted": 0,
+      "succeeded": 0,
+      "recovered": 0,
+      "recovered_amount": 0,
+      "wasted_retries": 0
+    },
+    {
+      "code": "CARD_EXPIRED",
+      "decline_class": "hard",
+      "note": "Instrument is permanently dead; the customer may still pay with a different card.",
+      "cases": 75,
+      "attempted": 75,
+      "succeeded": 50,
+      "recovered": 50,
+      "recovered_amount": 124197569,
+      "wasted_retries": 0
+    },
+    {
+      "code": "MANDATE_REVOKED",
+      "decline_class": "hard",
+      "note": "Customer withdrew authorization; needs a fresh mandate, not a retry.",
+      "cases": 49,
+      "attempted": 49,
+      "succeeded": 30,
+      "recovered": 30,
+      "recovered_amount": 77745338,
+      "wasted_retries": 0
+    },
+    {
+      "code": "ACCOUNT_CLOSED",
+      "decline_class": "hard",
+      "note": "Underlying account no longer exists; instruments unrelated to it may still work.",
+      "cases": 56,
+      "attempted": 56,
+      "succeeded": 41,
+      "recovered": 41,
+      "recovered_amount": 96257743,
+      "wasted_retries": 0
+    },
+    {
+      "code": "STOLEN_CARD",
+      "decline_class": "hard",
+      "note": "Fraud signal, not just a dead card. Do not auto-switch instrument; route to manual review.",
+      "cases": 0,
+      "attempted": 0,
+      "succeeded": 0,
+      "recovered": 0,
+      "recovered_amount": 0,
+      "wasted_retries": 0
+    }
+  ]
+}

@@ -170,6 +170,7 @@ class BuildReportDataTests(unittest.TestCase):
         codes = {row["code"]: row for row in self.data["decline_codes"]}
         self.assertIn("STOLEN_CARD", codes)  # never appeared in this fixture -- must still be present at zero
         self.assertEqual(codes["STOLEN_CARD"]["cases"], 0)
+        self.assertEqual(codes["STOLEN_CARD"]["recovered_amount"], 0)
         self.assertTrue(codes["STOLEN_CARD"]["note"])  # human-readable description present
 
     def test_decline_codes_table_counts_correctly(self):
@@ -179,6 +180,7 @@ class BuildReportDataTests(unittest.TestCase):
         self.assertEqual(soft["attempted"], 1)
         self.assertEqual(soft["succeeded"], 1)
         self.assertEqual(soft["recovered"], 1)
+        self.assertEqual(soft["recovered_amount"], 50_000)  # c1
         self.assertEqual(soft["wasted_retries"], 0)
 
         hard = codes["CARD_EXPIRED"]
@@ -186,7 +188,15 @@ class BuildReportDataTests(unittest.TestCase):
         self.assertEqual(hard["attempted"], 1)  # only c2 was a retry action (different instrument)
         self.assertEqual(hard["succeeded"], 1)
         self.assertEqual(hard["recovered"], 1)
+        self.assertEqual(hard["recovered_amount"], 30_000)  # c2 only -- c3 (escalated) recovered nothing
         self.assertEqual(hard["wasted_retries"], 0)  # neither used retry_same_instrument
+
+    def test_decline_codes_recovered_amount_is_exact_not_derived_from_a_capped_sample(self):
+        # The whole point of computing this in Python over the full outcome
+        # list: it must be correct regardless of any downstream audit cap.
+        codes = {row["code"]: row for row in self.data["decline_codes"]}
+        total_recovered_amount = sum(row["recovered_amount"] for row in codes.values())
+        self.assertEqual(total_recovered_amount, self.data["headline"]["recovered_amount"])
 
     def test_policy_block_matches_config_constants(self):
         policy = self.data["policy"]

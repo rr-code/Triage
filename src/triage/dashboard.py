@@ -161,6 +161,7 @@ def _empty_code_row(code: str) -> dict:
         "attempted": 0,
         "succeeded": 0,
         "recovered": 0,
+        "recovered_amount": 0,
         "wasted_retries": 0,
     }
 
@@ -183,6 +184,10 @@ def _build_decline_codes(outcomes: list[CaseOutcome]) -> list[dict]:
                 row["succeeded"] += 1
         if outcome.recovered:
             row["recovered"] += 1
+            # Computed from the full, uncapped outcome list -- not from the
+            # audit array, which is capped for page size and must never be
+            # treated as a complete source for a real money figure.
+            row["recovered_amount"] += outcome.recovered_amount
         if outcome.decision.action is Action.RETRY_SAME_INSTRUMENT and decline.decline_class is DeclineClass.HARD:
             row["wasted_retries"] += 1
 

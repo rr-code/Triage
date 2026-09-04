@@ -18,6 +18,23 @@ import html.parser
 import re
 import unittest
 
+
+def _relative_luminance(hex_color: str) -> float:
+    hex_color = hex_color.lstrip("#")
+    r, g, b = (int(hex_color[i : i + 2], 16) / 255 for i in (0, 2, 4))
+
+    def lin(c: float) -> float:
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = lin(r), lin(g), lin(b)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast_ratio(hex_a: str, hex_b: str) -> float:
+    la, lb = _relative_luminance(hex_a), _relative_luminance(hex_b)
+    lighter, darker = max(la, lb), min(la, lb)
+    return (lighter + 0.05) / (darker + 0.05)
+
 from src.triage.dashboard import DEFAULT_TEMPLATE_PATH, build_report_data, render_dashboard_html
 from src.triage.compare import ComparisonReport
 from tests.test_dashboard import build_fixture_comparison
@@ -80,7 +97,7 @@ class RawTemplateSelfContainmentTests(unittest.TestCase):
         # bare :root block (not inside @media or [data-theme]) must define every token
         root_block = re.search(r":root\{(.*?)\}", self.source, re.DOTALL)
         self.assertIsNotNone(root_block)
-        for token in ("--bg", "--text", "--accent", "--good", "--bad", "--border"):
+        for token in ("--page", "--surface", "--text", "--accent", "--good", "--bad", "--hairline"):
             self.assertIn(token, root_block.group(1))
 
     def test_dark_override_guarded_by_media_query_and_not_light_selector(self):
@@ -119,7 +136,8 @@ class RawTemplateSelfContainmentTests(unittest.TestCase):
         self.assertNotIn('class="tag"', self.source)
 
     def test_overview_stat_cards_are_real_buttons_not_divs_with_onclick(self):
-        self.assertIn("el('button', 'stat-card')", self.source)
+        self.assertIn("el('button', isPrimary", self.source)
+        self.assertIn("'stat-card'", self.source)
         self.assertNotIn("onclick", self.source.lower())
 
     def test_overview_has_the_four_compact_panels_with_dedicated_navigation_targets(self):
@@ -142,6 +160,100 @@ class RawTemplateSelfContainmentTests(unittest.TestCase):
         # it was previously defined once inside renderComparison; it must
         # now be hoisted so Overview's mini panel can reuse it too
         self.assertEqual(self.source.count("function barChart("), 1)
+
+    def test_no_gradients_anywhere(self):
+        self.assertNotIn("gradient", self.source.lower())
+
+    def test_no_centered_prose_text(self):
+        self.assertNotIn("text-align:center", self.source.replace(" ", ""))
+
+    def test_no_box_shadow_used_as_a_soft_floating_card_shadow(self):
+        # box-shadow is used exactly once, as a 0-blur inset ring to mark
+        # the gate stage -- not as a blurred drop shadow under a card.
+        shadow_rules = re.findall(r"box-shadow:([^;]+);", self.source)
+        for rule in shadow_rules:
+            self.assertIn("inset", rule)
+            self.assertNotIn("rgba", rule)
+
+    def test_containers_use_small_radius_not_rounded_cards(self):
+        # Pill/chip badges (.pill, .filter-btn) are a full-round tag shape,
+        # a different convention from "cards" -- excluded deliberately.
+        rules = re.findall(r"([^{}]+)\{[^{}]*border-radius:(\d+)px[^{}]*\}", self.source)
+        for selector, radius in rules:
+            if "pill" in selector or "filter-btn" in selector:
+                continue
+            self.assertLessEqual(
+                int(radius), 4, f"{selector.strip()} uses a {radius}px radius -- containers should be 3-4px, not rounded cards"
+            )
+
+    def test_accent_is_not_used_on_meters_borders_or_callouts(self):
+        # These are the specific old (rejected) uses of accent this redesign
+        # replaced with neutral treatment -- pin that they stay gone.
+        forbidden_accent_rules = [
+            ".pill-ambiguous{background:var(--accent-soft);color:var(--accent);}",
+            ".config-card.is-triage{border-color:var(--accent);",
+            ".filter-btn[aria-pressed=\"true\"]{background:var(--accent);",
+            ".bar-fill.accent{background:var(--accent);}",
+            ".mini-bar-fill{display:block;height:100%;background:var(--accent);",
+            ".funnel-meter-fill{display:block;height:100%;background:var(--accent);}",
+            ".pipeline-stage.is-gate{border-color:var(--accent);",
+        ]
+        compact = self.source.replace(" ", "").replace("\n", "")
+        for rule in forbidden_accent_rules:
+            self.assertNotIn(rule.replace(" ", ""), compact)
+
+    def test_table_headers_carry_explanatory_title_tooltips(self):
+        thead_blocks = re.findall(r"<thead>.*?</thead>", self.source, re.DOTALL)
+        self.assertEqual(len(thead_blocks), 4)
+        for block in thead_blocks:
+            ths = re.findall(r"<th(?:\s[^>]*)?>", block)
+            for th in ths:
+                self.assertIn("title=", th, f"header missing a title tooltip: {th}")
+
+    def test_worst_offenders_no_longer_sums_money_from_the_capped_audit_sample(self):
+        # This was the bug: aggregating a per-code money figure from the
+        # (capped) audit array instead of the exact Python-computed total.
+        self.assertNotIn("recoveredAmountByDeclineCode", self.source)
+        self.assertIn("r.recovered_amount", self.source)
+
+    def test_triage_bar_is_highlighted_in_the_how_it_compares_panel(self):
+        self.assertIn("highlightKey: 'triage'", self.source)
+        self.assertIn(".mini-bar-fill.is-highlight{background:var(--accent);}", self.source.replace(" ", ""))
+
+    def test_other_bars_in_that_panel_are_not_also_forced_accent(self):
+        # The default fill for every non-highlighted bar must stay the
+        # neutral meter colour, not accent.
+        self.assertIn(".mini-bar-fill{display:block;height:100%;background:var(--meter);", self.source.replace(" ", ""))
+
+    def test_funnel_label_wraps_instead_of_ellipsing(self):
+        rule = re.search(r"\.mini-funnel-label\{([^}]*)\}", self.source)
+        self.assertIsNotNone(rule)
+        self.assertNotIn("nowrap", rule.group(1))
+        self.assertNotIn("ellipsis", rule.group(1))
+
+    def test_dark_tertiary_text_meets_aa_contrast_on_page_and_surface(self):
+        dark_root = re.search(r':root\[data-theme="dark"\]\{(.*?)\}', self.source, re.DOTALL).group(1)
+
+        def token(name):
+            return re.search(rf"{re.escape(name)}:(#[0-9a-fA-F]{{6}})", dark_root).group(1)
+
+        text_3, page, surface = token("--text-3"), token("--page"), token("--surface")
+        self.assertGreaterEqual(_contrast_ratio(text_3, page), 4.5, f"--text-3 {text_3} on --page {page} fails AA")
+        self.assertGreaterEqual(_contrast_ratio(text_3, surface), 4.5, f"--text-3 {text_3} on --surface {surface} fails AA")
+
+    def test_both_dark_blocks_define_the_same_lifted_text_3(self):
+        # The media-query dark block and the explicit [data-theme="dark"]
+        # override must never drift apart -- caught a real bug here where
+        # only one of the two got updated.
+        values = re.findall(r"--text-3:(#[0-9a-fA-F]{6});", self.source)
+        dark_values = [v for v in values if v != "#868fa0"]  # excludes the light-theme value
+        self.assertEqual(len(dark_values), 2)
+        self.assertEqual(dark_values[0], dark_values[1])
+
+    def test_funnel_note_element_and_explanation_logic_present(self):
+        self.assertIn('id="funnel-note"', self.source)
+        self.assertIn("guardrailed_baseline", self.source)
+        self.assertIn("proposed nothing the gate needed to block", self.source)
 
     def test_all_six_views_present(self):
         for view_id in (
