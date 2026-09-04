@@ -1,20 +1,20 @@
 # Triage
 
-A dunning agent that decides which failed payments are worth retrying — and,
+A dunning agent that decides which failed payments are worth retrying and,
 just as important, which ones aren't. Built for the Razorpay AI Buildathon
 (Track 3, AI Revenue Recovery).
 
 ## The problem
 
 Every retry attempt against a payment method costs something even when it
-fails — issuer goodwill, rate-limit headroom — and every customer message
+fails issuer goodwill, rate-limit headroom and every customer message
 costs attention, so retrying blindly is expensive twice over. Most dunning
 systems retry every failed payment on a fixed schedule regardless of *why*
 it failed, which means they grind forever on cards that are permanently
 dead and decline codes that were never going to answer differently on the
 fifth attempt. Triage reads the decline code and the case's own history
 before deciding whether a payment is worth pursuing at all, and if so,
-which lever to pull — retry, switch instrument, nudge, discount, or write
+which lever to pull retry, switch instrument, nudge, discount, or write
 off.
 
 ## Headline result
